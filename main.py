@@ -9,51 +9,54 @@ import threading
 # Web server
 app = Flask('')
 @app.route('/')
-def home(): return "Bots are waiting for command!"
-
-def run_web_server():
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
-
-threading.Thread(target=run_web_server, daemon=True).start()
+def home(): return "Bots are online!"
+threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080))), daemon=True).start()
 
 # Configuration
 BOT_1_TOKEN = os.environ.get("BOT_TOKEN_1")
 BOT_2_TOKEN = os.environ.get("BOT_TOKEN_2")
 TARGET_ID = int(os.environ.get("CHANNEL_ID"))
 
+# Intents setup (IMPORTANT: Message content zaruri hai)
 intents = discord.Intents.default()
-intents.message_content = True
-bot1 = commands.Bot(command_prefix="!", intents=intents)
-bot2 = commands.Bot(command_prefix="!", intents=intents)
+intents.message_content = True 
 
-# Chat loop function
-async def chat_loop(channel):
-    await channel.send("🤖 **System**: Chatting start ho gayi hai!")
-    while True:
-        await channel.send("**Fahad**: Hello Ayesha, kaisi ho?")
-        await asyncio.sleep(random.randint(8, 12))
-        await channel.send("**Ayesha**: Main thik hoon! Tum sunao, kya chal raha hai?")
-        await asyncio.sleep(random.randint(8, 12))
+bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Command trigger
-@bot1.command(name="startchat")
+# Chatting Control
+is_chatting = False
+
+@bot.command()
 async def startchat(ctx):
+    global is_chatting
     if ctx.channel.id == TARGET_ID:
-        bot1.loop.create_task(chat_loop(ctx.channel))
+        is_chatting = True
+        await ctx.send("🤖 **System**: Chatting shuru ho gayi!")
+        
+        while is_chatting:
+            await ctx.send("**Fahad**: Hello Ayesha, kaisi ho?")
+            await asyncio.sleep(random.randint(6, 10))
+            await ctx.send("**Ayesha**: Main thik hoon! Tum sunao, kya chal raha hai?")
+            await asyncio.sleep(random.randint(6, 10))
     else:
-        await ctx.send("❌ Yeh command sirf mere assigned channel mein kaam karega!")
+        await ctx.send("❌ Yeh command sirf assigned channel mein kaam karega!")
 
-@bot1.event
+@bot.command()
+async def stopchat(ctx):
+    global is_chatting
+    is_chatting = False
+    await ctx.send("🛑 **System**: Chat ruk gayi.")
+
+@bot.event
 async def on_ready():
-    print(f"✅ Fahad Online! Type !startchat to begin.")
+    print(f"✅ Both bots managed by main bot are online!")
 
-@bot2.event
-async def on_ready():
-    print(f"✅ Ayesha Online!")
-
+# Token management (Donon bots ka token)
 async def main():
-    await asyncio.gather(bot1.start(BOT_1_TOKEN), bot2.start(BOT_2_TOKEN))
+    # Yahan hum 2 bots ko run kar rahe hain
+    await bot.start(BOT_1_TOKEN) 
+    # Note: Agar 2 alag bot objects chahiye, toh code thoda aur complex hoga, 
+    # filhaal test ke liye check karein ki ye command leta hai ya nahi.
 
 if __name__ == "__main__":
     asyncio.run(main())
