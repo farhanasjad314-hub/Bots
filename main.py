@@ -1,117 +1,74 @@
 import discord
 from discord.ext import commands
 import asyncio
+import os
 from flask import Flask
-from threading import Thread
+import threading
 
-# Render ke liye background server
+# ================= 🌐 WEB SERVER SETUP FOR RENDER =================
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bots are running 24/7 without ID!"
+    return "Bots are running 24/7 perfectly!"
 
 def run_web_server():
-    app.run(host='0.0.0.0', port=8080)
+    # Render jo port bhejega (jaise 8080 ya 10000), ye use automatic pakad lega
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
 
-# ----------------- BOTS SETUP -----------------
+# Web server ko background thread mein start karna taaki port active rahe
+server_thread = threading.Thread(target=run_web_server, daemon=True)
+server_thread.start()
 
-# YAHA APNE DONO BOTS KE TOKENS DAALEIN
-BOT_TOKEN_1 = "MTUwNTg0MjU5NDM3MzA0NjMxMw.GOCgpD.Q0zP0wA6_rBC0fpHUit-31kd31WKOJ4zbyOxQ0"
-BOT_TOKEN_2 = "MTUwNTg0MjAxMDIyMzgwODU2Mg.GUZQN8.e_tVXCkZFuQ7E6AOAz6ko8_TwRsQM7B1aKbdNA"
+# ================= ⚙️ BOTS CONFIGURATION =================
+# Ab tokens direct Render ke Environment Variables se load honge
+BOT_1_TOKEN = os.environ.get("MTUwNTg0MjU5NDM3MzA0NjMxMw.G7k_LC.pDiIYFaJYq5_xU11kYEZx1OFRaNGGzdh4wwSjc")
+BOT_2_TOKEN = os.environ.get("MTUwNTg0MjAxMDIyMzgwODU2Mg.GtKhJj.TGikwiLuaCX7b0UheUzb-WdMa9CK3Oxbyys8x8")
 
-# YAHA APNE BOTS KE DISPLAY NAMES (Nicknames) DAALEIN
+# Yahan apne channel ki ID daal dena jahan chat karwani hai
+CHANNEL_ID = 123456789012345678  # 👈 Apni sahi ID se replace karein
+
+# Bots ke display names (Nicknames)
 Ayesha = "Bot One"
 Fahad = "Bot Two"
 
 intents = discord.Intents.default()
 intents.message_content = True
 
-bot1 = commands.Bot(command_prefix="1!", intents=intents)
-bot2 = commands.Bot(command_prefix="2!", intents=intents)
+bot1 = commands.Bot(command_prefix="11", intents=intents)
+bot2 = commands.Bot(command_prefix="21", intents=intents)
 
-# Global variable taaki dono bots ko pata ho kis channel mein baat karni hai
+# Global variable dono bots ke chat sync ke liye
 active_channel_id = None
 
-# Kisi bhi available text channel ko dhoondne ka function
-def find_a_channel(bot):
-    for guild in bot.guilds:
-        for channel in guild.text_channels:
-            if channel.permissions_for(guild.me).send_messages:
-                return channel
-    return None
+# ================= 💬 AUTOMATIC CHAT FUNCTION =================
+async def start_conversation(channel):
+    await asyncio.sleep(5)  # Thoda ruk kar shuru karein
+    await channel.send("Hello! Kaise ho?")
 
 @bot1.event
 async def on_ready():
-    global active_channel_id
-    print(f'{bot1.user.name} (Bot 1) is Online!')
-    
-    await asyncio.sleep(5) # Bots ko stable hone dein
-    channel = find_a_channel(bot1)
-    
-    if channel and active_channel_id is None:
-        active_channel_id = channel.id
-        print(f"Chatting started in channel: {channel.name}")
-        await channel.send("Hello! Kaise ho?")
+    print(f"✅ Bot 1 Online as {bot1.user}")
+    channel = bot1.get_channel(CHANNEL_ID)
+    if channel:
+        bot1.loop.create_task(start_conversation(channel))
+    else:
+        print("❌ Bot 1 ko channel nahi mila. Channel ID check karein.")
 
 @bot2.event
 async def on_ready():
-    print(f'{bot2.user.name} (Bot 2) is Online!')
+    print(f"✅ Bot 2 Online as {bot2.user}")
 
-@bot1.event
-async def on_message(message):
-    global active_channel_id
-    
-    # Agar abhi tak koi channel set nahi hua, toh jo bhi pehla message aaye use hi channel maan lo
-    if active_channel_id is None and not message.author.bot:
-        active_channel_id = message.channel.id
-
-    if message.channel.id != active_channel_id or message.author == bot1.user:
-        return
-
-    # Agar Bot 2 ne message bheja
-    if message.author == bot2.user or message.author.display_name == BOT_2_DISPLAY_NAME:
-        await asyncio.sleep(3)
-        msg = message.content.lower()
-        
-        if "kaise ho" in msg:
-            await message.channel.send("Main badhiya hoon! Tum batao?")
-        elif "tum batao" in msg:
-            await message.channel.send("Main bhi ekdum mast. Aur kya chal raha hai?")
-        elif "chal raha hai" in msg:
-            await message.channel.send("Bas server par bakchodi chal rahi hai 😂")
-        else:
-            await message.channel.send("Sahi hai bhai, aur sunao!")
-
-@bot2.event
-async def on_message(message):
-    global active_channel_id
-
-    if message.channel.id != active_channel_id or message.author == bot2.user:
-        return
-
-    # Agar Bot 1 ne message bheja
-    if message.author == bot1.user or message.author.display_name == BOT_1_DISPLAY_NAME:
-        await asyncio.sleep(3)
-        msg = message.content.lower()
-        
-        if "hello" in msg:
-            await message.channel.send("Hi! Kaise ho?")
-        elif "badhiya hoon" in msg:
-            await message.channel.send("Great! Aur batao?")
-        elif "mast" in msg:
-            await message.channel.send("Aur kya chal raha hai?")
-        elif "bakchodi" in msg:
-            await message.channel.send("Haha, sahi hai! Lage raho.")
-        else:
-            await message.channel.send("Aur sab badhiya?")
-
-# Dono bots ko ek sath run karne ka function
+# ================= 🚀 MAIN RUNNER =================
 async def main():
-    Thread(target=run_web_server).start()
+    if not BOT_1_TOKEN or not BOT_2_TOKEN:
+        print("❌ Error: BOT_TOKEN_1 ya BOT_TOKEN_2 Render ki settings mein nahi mila!")
+        return
+        
     await asyncio.gather(
-        bot1.start(BOT_TOKEN_1),
-        bot2.start(BOT_TOKEN_2)
+        bot1.start(BOT_1_TOKEN),
+        bot2.start(BOT_2_TOKEN)
     )
 
 if __name__ == "__main__":
