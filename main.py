@@ -6,57 +6,51 @@ import random
 from flask import Flask
 import threading
 
-# Web server
 app = Flask('')
 @app.route('/')
-def home(): return "Bots are online!"
+def home(): return "Bots are waiting!"
 threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080))), daemon=True).start()
 
-# Configuration
 BOT_1_TOKEN = os.environ.get("BOT_TOKEN_1")
-BOT_2_TOKEN = os.environ.get("BOT_TOKEN_2")
 TARGET_ID = int(os.environ.get("CHANNEL_ID"))
 
-# Intents setup (IMPORTANT: Message content zaruri hai)
 intents = discord.Intents.default()
 intents.message_content = True 
-
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Chatting Control
-is_chatting = False
+# Chat control
+chat_task = None
+
+async def chat_loop(channel):
+    while True:
+        await channel.send("**Fahad**: Hello Ayesha, kaisi ho?")
+        await asyncio.sleep(random.randint(6, 10))
+        await channel.send("**Ayesha**: Main thik hoon! Tum sunao, kya chal raha hai?")
+        await asyncio.sleep(random.randint(6, 10))
 
 @bot.command()
 async def startchat(ctx):
-    global is_chatting
+    global chat_task
     if ctx.channel.id == TARGET_ID:
-        is_chatting = True
-        await ctx.send("🤖 **System**: Chatting shuru ho gayi!")
+        # Agar pehle se chat chal rahi hai, toh use cancel karo
+        if chat_task:
+            chat_task.cancel()
         
-        while is_chatting:
-            await ctx.send("**Fahad**: Hello Ayesha, kaisi ho?")
-            await asyncio.sleep(random.randint(6, 10))
-            await ctx.send("**Ayesha**: Main thik hoon! Tum sunao, kya chal raha hai?")
-            await asyncio.sleep(random.randint(6, 10))
+        await ctx.send("🤖 **System**: Chatting shuru ho gayi!")
+        chat_task = bot.loop.create_task(chat_loop(ctx.channel))
     else:
-        await ctx.send("❌ Yeh command sirf assigned channel mein kaam karega!")
+        await ctx.send("❌ Galat channel!")
 
 @bot.command()
 async def stopchat(ctx):
-    global is_chatting
-    is_chatting = False
-    await ctx.send("🛑 **System**: Chat ruk gayi.")
+    global chat_task
+    if chat_task:
+        chat_task.cancel()
+        chat_task = None
+        await ctx.send("🛑 **System**: Chat ruk gayi.")
 
 @bot.event
 async def on_ready():
-    print(f"✅ Both bots managed by main bot are online!")
+    print(f"✅ Bot is Online!")
 
-# Token management (Donon bots ka token)
-async def main():
-    # Yahan hum 2 bots ko run kar rahe hain
-    await bot.start(BOT_1_TOKEN) 
-    # Note: Agar 2 alag bot objects chahiye, toh code thoda aur complex hoga, 
-    # filhaal test ke liye check karein ki ye command leta hai ya nahi.
-
-if __name__ == "__main__":
-    asyncio.run(main())
+bot.run(BOT_1_TOKEN)
